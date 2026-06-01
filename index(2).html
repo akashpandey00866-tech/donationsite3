@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>जय मां काली समिति</title>
+<style>
+body{margin:0;font-family:Arial;background:linear-gradient(135deg,#250000,#6d0000,#a31616);color:#fff}
+.card{max-width:1200px;margin:20px auto;background:rgba(255,255,255,.12);padding:25px;border-radius:28px}
+.hero{text-align:center;padding:20px}
+.stats{display:flex;gap:12px;flex-wrap:wrap}
+.stat{flex:1;min-width:180px;background:rgba(255,255,255,.15);padding:12px;border-radius:16px;text-align:center}
+input,button{padding:12px;width:100%;margin:6px 0;border:none;border-radius:12px}
+button{cursor:pointer}
+table{width:100%;border-collapse:collapse;background:#fff;color:#000}
+th,td{padding:10px;border:1px solid #ddd}
+th{background:#ffd700}
+#adminPanel{display:none}
+.delete{background:#c60000;color:#fff}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<h1>🙏 जय मां काली समिति धौरहरा काली चरन 🙏</h1>
+<h2>(चंदा भुगतान सूची)</h2>
+<p>भंडारा सहयोग एवं खर्च विवरण</p>
+</div>
+
+<div class="card">
+<div class="stats">
+<div class="stat"><h3>कुल सहयोगी</h3><h2 id="count">0</h2></div>
+<div class="stat"><h3>कुल राशि</h3><h2 id="total">₹0</h2></div>
+<div class="stat"><h3>कुल खर्च</h3><h2 id="expenseTotal">₹0</h2></div>
+<div class="stat"><h3>बची राशि</h3><h2 id="balance">₹0</h2></div>
+</div>
+
+<h2>🔐 Admin Login</h2>
+<input id="pass" type="password" placeholder="Admin Password">
+<button onclick="login()">Login</button>
+
+<div id="adminPanel">
+<h3>दानदाता जोड़ें</h3>
+<input id="donorName" placeholder="नाम">
+<input id="donorAmount" placeholder="राशि">
+<input id="donorDate" placeholder="दिनांक">
+<input id="donorSpecial" placeholder="विशेष सहयोग">
+<button onclick="addDonation()">Add Donation</button>
+
+<h3>खर्च जोड़ें</h3>
+<input id="itemName" placeholder="सामान का नाम">
+<input id="itemCost" placeholder="खर्च राशि">
+<input id="buyerName" placeholder="किसने खरीदा">
+<input id="expenseDate" placeholder="दिनांक">
+<button onclick="addExpense()">Add Expense</button>
+</div>
+
+<h2>📜 दानदाताओं की सूची</h2>
+<table>
+<thead><tr><th>Name</th><th>Amount</th><th>Date</th><th>Special</th><th>Action</th></tr></thead>
+<tbody id="table"></tbody>
+</table>
+
+<h2>🧾 खर्च सूची</h2>
+<table>
+<thead><tr><th>सामान</th><th>₹</th><th>खरीदा</th><th>Date</th><th>Action</th></tr></thead>
+<tbody id="expenseTable"></tbody>
+</table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore,collection,addDoc,onSnapshot,deleteDoc,doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+ apiKey: "AIzaSyCFKEGvRPH8WsyWMH8VYmUses7AlqVt0cM",
+ authDomain: "donation-a9366.firebaseapp.com",
+ projectId: "donation-a9366",
+ storageBucket: "donation-a9366.firebasestorage.app",
+ messagingSenderId: "631479489716",
+ appId: "1:631479489716:web:698e06dd63262bcd91b3e1"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let admin=false;
+window.login=function(){
+ if(document.getElementById('pass').value==='ashok#'){
+   admin=true;
+   document.getElementById('adminPanel').style.display='block';
+   alert('Admin Login Success');
+ } else alert('Wrong password');
+}
+
+window.addDonation=async function(){
+ if(!admin) return;
+ await addDoc(collection(db,'donations'),{
+   name: donorName.value,
+   amount: donorAmount.value,
+   date: donorDate.value,
+   special: donorSpecial.value
+ });
+ donorName.value=''; donorAmount.value=''; donorDate.value=''; donorSpecial.value='';
+}
+
+window.addExpense=async function(){
+ if(!admin) return;
+ await addDoc(collection(db,'expenses'),{
+   item:itemName.value,
+   cost:itemCost.value,
+   buyer:buyerName.value,
+   date:expenseDate.value
+ });
+ itemName.value=''; itemCost.value=''; buyerName.value=''; expenseDate.value='';
+}
+
+onSnapshot(collection(db,'donations'),snap=>{
+ let total=0;
+ table.innerHTML='';
+ const rows=[];
+ snap.forEach(d=>{
+   const x=d.data();
+   const amt=parseFloat(x.amount)||0;
+   total+=amt;
+   rows.push({id:d.id,...x});
+ });
+ rows.forEach(x=>{
+  table.innerHTML += `<tr><td>${x.name||''}</td><td>${x.amount||''}</td><td>${x.date||''}</td><td>${x.special||''}</td>
+  <td>${admin?`<button class="delete" onclick="deleteDonation('${x.id}')">Delete</button>`:'🔒'}</td></tr>`;
+ });
+ document.getElementById('total').innerText='₹'+total;
+ document.getElementById('count').innerText=rows.length;
+ updateBalance();
+});
+
+onSnapshot(collection(db,'expenses'),snap=>{
+ let total=0;
+ expenseTable.innerHTML='';
+ const rows=[];
+ snap.forEach(d=>{
+  const x=d.data();
+  total += parseFloat(x.cost)||0;
+  rows.push({id:d.id,...x});
+ });
+ rows.forEach(x=>{
+ expenseTable.innerHTML += `<tr><td>${x.item||''}</td><td>₹${x.cost||0}</td><td>${x.buyer||''}</td><td>${x.date||''}</td>
+ <td>${admin?`<button class="delete" onclick="deleteExpense('${x.id}')">Delete</button>`:'🔒'}</td></tr>`;
+ });
+ document.getElementById('expenseTotal').innerText='₹'+total;
+ updateBalance();
+});
+
+window.deleteDonation=async(id)=>{ if(admin) await deleteDoc(doc(db,'donations',id));}
+window.deleteExpense=async(id)=>{ if(admin) await deleteDoc(doc(db,'expenses',id));}
+
+function updateBalance(){
+ const donation=parseFloat(document.getElementById('total').innerText.replace('₹',''))||0;
+ const expense=parseFloat(document.getElementById('expenseTotal').innerText.replace('₹',''))||0;
+ document.getElementById('balance').innerText='₹'+(donation-expense);
+}
+</script>
+</body>
+</html>
